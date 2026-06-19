@@ -14,7 +14,7 @@ export default function App() {
     saveTrips(next)
   }, [])
 
-  const addTrip = (trip: Trip) => persist([...trips, trip])
+  const addTrip = (newTrips: Trip[]) => persist([...trips, ...newTrips])
   const editTrip = (trip: Trip) => persist(trips.map(t => t.id === trip.id ? trip : t))
   const deleteTrip = (id: string) => {
     persist(trips.filter(t => t.id !== id))

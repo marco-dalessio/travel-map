@@ -8,7 +8,7 @@ interface Props {
   trips: Trip[]
   selected: string | null
   onSelect: (id: string | null) => void
-  onAdd: (trip: Trip) => void
+  onAdd: (trips: Trip[]) => void
   onEdit: (trip: Trip) => void
   onDelete: (id: string) => void
   onImport: (trips: Trip[]) => void
@@ -61,9 +61,9 @@ export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDe
           </p>
           <TripForm
             initial={editing ? trips.find(t => t.id === editing) : undefined}
-            onSave={(trip) => {
-              if (editing) onEdit(trip)
-              else onAdd(trip)
+            onSave={(saved) => {
+              if (editing) onEdit(saved[0])
+              else onAdd(saved)
               setAdding(false)
               setEditing(null)
             }}
