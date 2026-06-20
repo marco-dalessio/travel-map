@@ -3,6 +3,7 @@ import type { Trip } from '../types'
 import { COMPANION_LABELS, COMPANION_COLORS } from '../types'
 import TripForm from './TripForm'
 import { exportJson, importJson } from '../storage'
+import type { SyncStatus } from '../App'
 
 interface Props {
   trips: Trip[]
@@ -12,9 +13,10 @@ interface Props {
   onEdit: (trip: Trip) => void
   onDelete: (id: string) => void
   onImport: (trips: Trip[]) => void
+  syncStatus: SyncStatus
 }
 
-export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDelete, onImport }: Props) {
+export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDelete, onImport, syncStatus }: Props) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('')
@@ -132,21 +134,34 @@ export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDe
         )}
       </div>
 
-      {/* Footer: import/export */}
-      <div className="p-3 border-t border-gray-100 flex gap-2">
-        <button
-          onClick={() => exportJson(trips)}
-          className="flex-1 py-1.5 text-xs rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-        >
-          Export JSON
-        </button>
-        <button
-          onClick={() => importRef.current?.click()}
-          className="flex-1 py-1.5 text-xs rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-        >
-          Import JSON
-        </button>
-        <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+      {/* Footer: sync status + import/export */}
+      <div className="border-t border-gray-100">
+        {syncStatus !== 'idle' && (
+          <div className={`px-4 py-1.5 text-xs text-center font-medium transition-all ${
+            syncStatus === 'syncing' ? 'text-gray-400' :
+            syncStatus === 'synced'  ? 'text-green-500' :
+                                       'text-red-400'
+          }`}>
+            {syncStatus === 'syncing' ? '↑ Syncing to Gist…' :
+             syncStatus === 'synced'  ? '✓ Saved to Gist' :
+                                        '⚠ Sync failed — data saved locally'}
+          </div>
+        )}
+        <div className="p-3 flex gap-2">
+          <button
+            onClick={() => exportJson(trips)}
+            className="flex-1 py-1.5 text-xs rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            Export JSON
+          </button>
+          <button
+            onClick={() => importRef.current?.click()}
+            className="flex-1 py-1.5 text-xs rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            Import JSON
+          </button>
+          <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+        </div>
       </div>
     </div>
   )

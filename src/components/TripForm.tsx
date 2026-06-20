@@ -3,6 +3,7 @@ import type { Trip, Companion } from '../types'
 import { COMPANION_LABELS, COMPANION_COLORS } from '../types'
 import type { GeoSuggestion } from '../geocode'
 import CityAutocomplete from './CityAutocomplete'
+import DatePicker from './DatePicker'
 
 interface CityEntry {
   inputVal: string
@@ -138,24 +139,18 @@ export default function TripForm({ initial, onSave, onCancel }: Props) {
 
       {/* Dates */}
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">From (optional)</label>
-          <input
-            className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
-            placeholder="2023-06 or 2023"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">To (optional)</label>
-          <input
-            className="mt-1 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
-            placeholder="2023-06 or 2023"
-          />
-        </div>
+        <DatePicker
+          label="From (optional)"
+          value={dateFrom}
+          onChange={setDateFrom}
+          placeholder="Month, Year"
+        />
+        <DatePicker
+          label="To (optional)"
+          value={dateTo}
+          onChange={setDateTo}
+          placeholder="Month, Year"
+        />
       </div>
 
       {/* Notes */}
