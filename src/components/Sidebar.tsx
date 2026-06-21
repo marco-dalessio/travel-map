@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 import type { Trip } from '../types'
 import { COMPANION_LABELS, COMPANION_COLORS } from '../types'
-import TripForm from './TripForm'
 import { exportJson, importJson } from '../storage'
 import type { SyncStatus } from '../App'
 
@@ -9,16 +8,14 @@ interface Props {
   trips: Trip[]
   selected: string | null
   onSelect: (id: string | null) => void
-  onAdd: (trips: Trip[]) => void
-  onEdit: (trip: Trip) => void
+  onAddClick: () => void
+  onEditClick: (id: string) => void
   onDelete: (id: string) => void
   onImport: (trips: Trip[]) => void
   syncStatus: SyncStatus
 }
 
-export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDelete, onImport, syncStatus }: Props) {
-  const [adding, setAdding] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
+export default function Sidebar({ trips, selected, onSelect, onAddClick, onEditClick, onDelete, onImport, syncStatus }: Props) {
   const [filter, setFilter] = useState<string>('')
   const importRef = useRef<HTMLInputElement>(null)
 
@@ -39,40 +36,45 @@ export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDe
     e.target.value = ''
   }
 
+  // Stats
+  const uniqueCities = new Set(trips.map(t => `${t.city}|${t.country}`)).size
+  const uniqueCountries = new Set(trips.map(t => t.country)).size
+  const years = trips.flatMap(t => [t.dateFrom, t.dateTo])
+    .filter(Boolean)
+    .map(d => parseInt(d!.split('-')[0]))
+    .filter(y => !isNaN(y))
+  const minYear = years.length ? Math.min(...years) : null
+  const maxYear = years.length ? Math.max(...years) : null
+
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-200 w-72 shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           <h1 className="text-base font-semibold text-gray-800">My Travels</h1>
           <span className="text-xs text-gray-400">{trips.length} places</span>
         </div>
+        {trips.length > 0 && (
+          <div className="text-xs text-gray-400 mb-3 flex gap-1.5 flex-wrap">
+            <span>{uniqueCities} cities</span>
+            <span>·</span>
+            <span>{uniqueCountries} countries</span>
+            {minYear !== null && (
+              <>
+                <span>·</span>
+                <span>{minYear === maxYear ? minYear : `${minYear}–${maxYear}`}</span>
+              </>
+            )}
+          </div>
+        )}
+        {trips.length === 0 && <div className="mb-3" />}
         <button
-          onClick={() => { setAdding(true); setEditing(null) }}
+          onClick={onAddClick}
           className="w-full py-2 rounded bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors"
         >
           + Add trip
         </button>
       </div>
-
-      {/* Add / Edit form */}
-      {(adding || editing) && (
-        <div className="p-4 border-b border-gray-100 bg-gray-50">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            {editing ? 'Edit trip' : 'New trip'}
-          </p>
-          <TripForm
-            initial={editing ? trips.find(t => t.id === editing) : undefined}
-            onSave={(saved) => {
-              if (editing) onEdit(saved[0])
-              else onAdd(saved)
-              setAdding(false)
-              setEditing(null)
-            }}
-            onCancel={() => { setAdding(false); setEditing(null) }}
-          />
-        </div>
-      )}
 
       {/* Search */}
       <div className="px-4 py-2 border-b border-gray-100">
@@ -116,7 +118,7 @@ export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDe
               {selected === trip.id && (
                 <div className="flex gap-2 mt-2 pl-5">
                   <button
-                    onClick={e => { e.stopPropagation(); setEditing(trip.id); setAdding(false) }}
+                    onClick={e => { e.stopPropagation(); onEditClick(trip.id) }}
                     className="text-xs text-blue-500 hover:underline"
                   >
                     Edit
@@ -137,7 +139,7 @@ export default function Sidebar({ trips, selected, onSelect, onAdd, onEdit, onDe
       {/* Footer: sync status + import/export */}
       <div className="border-t border-gray-100">
         {syncStatus !== 'idle' && (
-          <div className={`px-4 py-1.5 text-xs text-center font-medium transition-all ${
+          <div className={`px-4 py-1.5 text-xs text-center font-medium ${
             syncStatus === 'syncing' ? 'text-gray-400' :
             syncStatus === 'synced'  ? 'text-green-500' :
                                        'text-red-400'

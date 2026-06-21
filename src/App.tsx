@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Trip, Companion } from './types'
 import { loadTrips, saveTrips } from './storage'
 import { getCredentials, loadFromGist, saveToGist, saveCredentials } from './gist'
@@ -7,10 +7,14 @@ import Sidebar from './components/Sidebar'
 import TravelMap from './components/TravelMap'
 import Legend from './components/Legend'
 import GistSetup from './components/GistSetup'
+import TripForm from './components/TripForm'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
 const ALL_COMPANIONS = new Set<Companion>(['solo', 'friends', 'ana', 'family'])
+
+// formMode: null = closed, 'add' = new trip, string = trip ID being edited
+type FormMode = null | 'add' | string
 
 export default function App() {
   const [trips, setTrips] = useState<Trip[]>([])
@@ -19,12 +23,13 @@ export default function App() {
   const [setupMode, setSetupMode] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [activeCompanions, setActiveCompanions] = useState<Set<Companion>>(new Set(ALL_COMPANIONS))
+  const [formMode, setFormMode] = useState<FormMode>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   // Load trips on mount
   useEffect(() => {
     const creds = getCredentials()
     if (!creds) {
-      // No Gist configured — use localStorage and show setup prompt
       setTrips(loadTrips())
       setAppLoading(false)
       setSetupMode(true)
@@ -32,7 +37,6 @@ export default function App() {
     }
     loadFromGist(creds)
       .then(loaded => {
-        // Auto-migrate localStorage data if Gist is empty
         if (loaded.length === 0) {
           const local = loadTrips()
           if (local.length > 0) {
@@ -42,16 +46,20 @@ export default function App() {
           }
         }
         setTrips(loaded)
-        saveTrips(loaded) // keep localStorage as offline cache
+        saveTrips(loaded)
       })
-      .catch(() => {
-        // Gist unreachable — fall back to localStorage silently
-        setTrips(loadTrips())
-      })
+      .catch(() => setTrips(loadTrips()))
       .finally(() => setAppLoading(false))
   }, [])
 
-  // Persist: update state + localStorage immediately, then sync to Gist
+  // Close modal on Escape
+  useEffect(() => {
+    if (!formMode) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFormMode(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [formMode])
+
   const persist = useCallback((next: Trip[]) => {
     setTrips(next)
     saveTrips(next)
@@ -99,7 +107,7 @@ export default function App() {
     setActiveCompanions(prev => {
       const next = new Set(prev)
       if (next.has(c)) {
-        if (next.size === 1) return prev // always keep at least one visible
+        if (next.size === 1) return prev
         next.delete(c)
       } else {
         next.add(c)
@@ -109,6 +117,10 @@ export default function App() {
   }
 
   const visibleTrips = trips.filter(t => activeCompanions.has(t.companion))
+
+  const editingTrip = formMode && formMode !== 'add'
+    ? trips.find(t => t.id === formMode)
+    : undefined
 
   if (appLoading) {
     return (
@@ -133,16 +145,58 @@ export default function App() {
         trips={trips}
         selected={selected}
         onSelect={setSelected}
-        onAdd={addTrip}
-        onEdit={editTrip}
+        onAddClick={() => setFormMode('add')}
+        onEditClick={(id) => setFormMode(id)}
         onDelete={deleteTrip}
         onImport={importTrips}
         syncStatus={syncStatus}
       />
       <div className="relative flex-1">
-        <TravelMap trips={visibleTrips} selected={selected} onSelect={setSelected} />
+        <TravelMap
+          trips={visibleTrips}
+          selected={selected}
+          onSelect={setSelected}
+          onEditTrip={(id) => setFormMode(id)}
+          onDeleteTrip={deleteTrip}
+        />
         <Legend activeCompanions={activeCompanions} onToggle={toggleCompanion} />
       </div>
+
+      {/* Modal overlay */}
+      {formMode !== null && (
+        <div
+          className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/40"
+          onClick={e => { if (e.target === e.currentTarget) setFormMode(null) }}
+        >
+          <div
+            ref={modalRef}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-800">
+                  {formMode === 'add' ? 'New trip' : 'Edit trip'}
+                </h2>
+                <button
+                  onClick={() => setFormMode(null)}
+                  className="text-gray-300 hover:text-gray-500 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              <TripForm
+                initial={editingTrip}
+                onSave={saved => {
+                  if (formMode !== 'add') editTrip(saved[0])
+                  else addTrip(saved)
+                  setFormMode(null)
+                }}
+                onCancel={() => setFormMode(null)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
